@@ -7,6 +7,9 @@
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey)
 
+## AI 生成工具的图像输出质量预览
+![AI Generated Image](generated_image.png)
+
 ## ✨ 主要功能
 
 - **🚀 交互式图像生成**：基于 ChenkinNoob 的 AI 图像生成，支持自定义提示词、尺寸和模型
