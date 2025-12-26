@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 from config import ModelsPath
 
 # 构建模型路径
-model_path = ModelsPath.ChenkinNoob
+model_path = ModelsPath.ChenkinNoob.value
 # 检查路径是否存在
 if not os.path.exists(model_path):
     raise FileNotFoundError(f"模型路径不存在: {model_path}")
@@ -26,13 +26,13 @@ if os.path.isfile(model_path) and model_path.endswith(".safetensors"):
 elif os.path.isdir(model_path):
     # 如果是文件夹，检查内部是否有 .safetensors 文件
     import glob
-
     safetensors_files = glob.glob(os.path.join(model_path, "*.safetensors"))
     if safetensors_files:
         # 找到 .safetensors 文件，使用单文件加载
         pipe = StableDiffusionXLPipeline.from_single_file(
             safetensors_files[0],
             torch_dtype=torch.float16,
+            local_files_only=True,
         )
     else:
         # 没有 .safetensors 文件，假定为 Diffusers 格式
@@ -40,17 +40,42 @@ elif os.path.isdir(model_path):
             model_path,
             torch_dtype=torch.float16,
             use_safetensors=True,
+            local_files_only=True,
         )
 else:
     raise ValueError(f"模型路径既不是文件也不是文件夹: {model_path}")
 
-# 如果有GPU，将模型移到GPU上
+# 应用显存优化
+print("应用显存优化...")
+
+# 启用注意力切片（减少峰值显存使用）
+pipe.enable_attention_slicing()
+
+# 启用VAE tiled解码（减少大图像解码时的显存使用）
+try:
+    pipe.vae.enable_tiling()
+    print("已启用VAE tiled解码")
+except Exception:
+    print("注意：当前VAE不支持tiled解码")
+
+# 如果有GPU，将模型移到GPU上，并考虑CPU卸载
 if torch.cuda.is_available():
-    pipe = pipe.to("cuda")
-    print("已使用CUDA加速")
+    total_memory = torch.cuda.get_device_properties(0).total_memory / 1024**3  # GB
+    print(f"GPU显存: {total_memory:.1f} GB")
+
+    # 根据显存大小选择优化策略
+    if total_memory < 8:  # 小于8GB显存，使用CPU卸载
+        print("显存较小，启用CPU卸载...")
+        pipe.enable_model_cpu_offload()
+    else:
+        # 显存足够，直接加载到GPU
+        pipe = pipe.to("cuda")
+        print("已使用CUDA加速")
+else:
+    print("未检测到CUDA GPU，使用CPU模式")
 
 # 生成图像
-prompt = "masterpiece, best quality, 1girl, beautiful detailed eyes, anime style"  # 使用英文提示词效果更好
+prompt = "cat girl"  # 使用英文提示词效果更好
 negative_prompt = "low quality, worst quality, blurry, deformed"
 
 image = pipe(
