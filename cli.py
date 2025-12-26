@@ -221,7 +221,9 @@ def interactive_cli() -> None:
 
     # 步骤3: 输入正向提示词
     rprint("\n[bold]步骤 3/5: 输入正向提示词[/bold]")
-    default_positive_prompt = "1girl with cat ears，masterpiece, best quality, cinematic lighting, soft pastel color palette, ,large sparkling eyes, delicate facial features, serene atmosphere, intricate details"
+    default_positive_prompt = (
+        "masterpiece, best quality, 1girl, beautiful detailed eyes, anime style"
+    )
 
     positive_prompt = inquirer.text(
         message="正向提示词 (支持多行，Ctrl+Z/Ctrl+D结束):",
@@ -231,7 +233,7 @@ def interactive_cli() -> None:
 
     # 步骤4: 输入反向提示词
     rprint("\n[bold]步骤 4/5: 输入反向提示词[/bold]")
-    default_negative_prompt = "low quality, worst quality, blurry, deformed, disfigured, extra limbs, fused fingers, bad anatomy, text, signature, watermark, username, ugly, duplicate, morbid, mutilated, anime screentone patterns, jpeg artifacts, out of focus, monochrome, grayscale, doll-like face"
+    default_negative_prompt = "low quality, worst quality, blurry, deformed"
 
     negative_prompt = inquirer.text(
         message="反向提示词 (支持多行，Ctrl+Z/Ctrl+D结束):",
