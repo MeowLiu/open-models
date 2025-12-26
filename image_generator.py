@@ -1,6 +1,7 @@
 import torch
 import os
 import glob
+import sys
 from diffusers.pipelines.stable_diffusion_xl.pipeline_stable_diffusion_xl import (
     StableDiffusionXLPipeline,
 )
@@ -70,6 +71,10 @@ class ChenkinNoobImageGenerator:
         """应用显存优化策略。"""
         print("应用显存优化...")
 
+        # 检查pipe是否成功加载
+        if self.pipe is None:
+            raise RuntimeError("模型管道未正确加载，无法应用优化")
+
         # 启用注意力切片（减少峰值显存使用）
         self.pipe.enable_attention_slicing()
 
@@ -87,14 +92,30 @@ class ChenkinNoobImageGenerator:
             )  # GB
             print(f"GPU显存: {total_memory:.1f} GB")
 
-            # 根据显存大小选择优化策略
-            if total_memory < 8:  # 小于8GB显存，使用CPU卸载
-                print("显存较小，启用CPU卸载...")
+            # 对于大模型（>6GB），6GB显存肯定不够，必须使用CPU卸载
+            # 保守阈值设为8GB，因为模型加载还需要额外内存
+            if total_memory < 8:
+                print(f"警告: 您的GPU显存({total_memory:.1f}GB)可能不足以加载此模型(6.6GB)。")
+                print("将强制使用CPU卸载模式，生成速度会较慢。")
+                print("建议: 如果可能，升级到至少8GB显存的GPU。")
+
+            # 强制使用CPU卸载以确保稳定性
+            print("启用CPU卸载以确保稳定性...")
+            try:
                 self.pipe.enable_model_cpu_offload()
-            else:
-                # 显存足够，直接加载到GPU
-                self.pipe = self.pipe.to("cuda")
-                print("已使用CUDA加速")
+                print("✓ CPU卸载已启用（模型在CPU，推理时按需加载到GPU）")
+            except Exception as e:
+                print(f"警告: CPU卸载失败: {e}")
+                print("尝试直接加载到GPU（可能因显存不足而失败）...")
+                try:
+                    self.pipe = self.pipe.to("cuda")
+                    print("已使用CUDA加速（高风险，可能崩溃）")
+                except Exception as e2:
+                    print(f"错误: 无法加载模型到GPU: {e2}")
+                    raise RuntimeError("模型加载失败，显存不足。建议：\n" +
+                                      "1. 关闭其他占用显存的应用程序\n" +
+                                      "2. 使用更小的分辨率（如512x512）\n" +
+                                      "3. 确保系统有至少12GB可用内存")
         else:
             print("未检测到CUDA GPU，使用CPU模式")
 

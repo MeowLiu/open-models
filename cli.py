@@ -8,6 +8,7 @@
 import os
 import re
 import sys
+import traceback
 from typing import Optional, Tuple
 from pathlib import Path
 
@@ -44,6 +45,52 @@ def validate_resolution(width: int, height: int) -> Tuple[bool, str]:
     if width % 64 != 0 or height % 64 != 0:
         return False, f"图像尺寸必须是64的倍数，当前为{width}x{height}"
     return True, ""
+
+
+def check_system_resources() -> Tuple[bool, str]:
+    """
+    检查系统资源是否足够运行模型。
+
+    Returns:
+        (是否足够, 警告信息)
+    """
+    warnings = []
+
+    try:
+        import torch
+        import psutil
+
+        # 检查GPU显存
+        if torch.cuda.is_available():
+            gpu_memory_gb = torch.cuda.get_device_properties(0).total_memory / 1024**3
+            if gpu_memory_gb < 8:
+                warnings.append(f"GPU显存较低 ({gpu_memory_gb:.1f}GB)，建议至少8GB。将使用CPU卸载模式。")
+        else:
+            warnings.append("未检测到CUDA GPU，将使用CPU模式（速度较慢）。")
+
+        # 检查系统内存
+        mem = psutil.virtual_memory()
+        available_memory_gb = mem.available / 1024**3
+        # 模型大小约6.6GB，加载需要约13-20GB内存
+        if available_memory_gb < 12:
+            warnings.append(f"可用系统内存较低 ({available_memory_gb:.1f}GB)，建议关闭其他应用程序。")
+
+        if warnings:
+            return False, "\n".join(warnings)
+        return True, ""
+
+    except ImportError:
+        # 如果无法导入psutil，跳过内存检查
+        return True, ""
+
+
+def print_resource_warnings():
+    """打印资源警告（如果适用）。"""
+    is_ok, warning_msg = check_system_resources()
+    if not is_ok and warning_msg:
+        rprint("\n[yellow]警告: 系统资源可能不足[/yellow]")
+        for line in warning_msg.split('\n'):
+            rprint(f"  {line}")
 
 
 def get_next_filename(base_name: str, extension: str = "png") -> str:
@@ -113,10 +160,12 @@ def interactive_cli() -> None:
     # 步骤2: 选择宽高比
     rprint("\n[bold]步骤 2/5: 选择图像尺寸[/bold]")
     aspect_ratio_choices = [
-        Choice(value=(1024, 1024), name="1:1 (Square): 1024×1024"),
+        Choice(value=(768, 768), name="3:3 (Square): 768×768 (推荐)"),
+        Choice(value=(512, 512), name="1:1 (Square): 512×512 (低显存)"),
+        Choice(value=(1024, 1024), name="1:1 (Square): 1024×1024 (高显存)"),
+        Choice(value=(768, 1024), name="3:4 (Portrait): 768×1024"),
         Choice(value=(768, 1344), name="9:16 (Portrait): 768×1344"),
         Choice(value=(1344, 768), name="16:9 (Landscape): 1344×768"),
-        Choice(value=(768, 1024), name="3:4 (Portrait): 768×1024"),
         Choice(value="custom", name="自定义尺寸"),
     ]
 
@@ -133,7 +182,7 @@ def interactive_cli() -> None:
                 width = inquirer.number(
                     message="请输入图像宽度:",
                     min_allowed=512,
-                    default=1024,
+                    default=768,
                     validate=lambda val: isinstance(val, (int, float))
                     and int(val) % 64 == 0,
                     invalid_message="宽度必须是64的倍数且≥512",
@@ -142,7 +191,7 @@ def interactive_cli() -> None:
                 height = inquirer.number(
                     message="请输入图像高度:",
                     min_allowed=512,
-                    default=1024,
+                    default=768,
                     validate=lambda val: isinstance(val, (int, float))
                     and int(val) % 64 == 0,
                     invalid_message="高度必须是64的倍数且≥512",
@@ -162,6 +211,9 @@ def interactive_cli() -> None:
         width, height = aspect_choice
 
     rprint(f"[green]✓ 图像尺寸: {width}×{height}[/green]")
+
+    # 检查系统资源
+    print_resource_warnings()
 
     # 步骤3: 输入正向提示词
     rprint("\n[bold]步骤 3/5: 输入正向提示词[/bold]")
@@ -297,6 +349,8 @@ def interactive_cli() -> None:
         sys.exit(1)
     except Exception as e:
         rprint(f"[red]未知错误:[/red]\n{e}")
+        rprint(f"[yellow]详细错误信息:[/yellow]")
+        traceback.print_exc()
         sys.exit(1)
 
 

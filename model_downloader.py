@@ -1,39 +1,38 @@
  
 """
-ModelScope Model Downloader - A CLI tool for downloading and managing models from ModelScope community.
+ModelScope 模型下载器 - 一个用于从 ModelScope 社区下载和管理模型的命令行工具。
 
-This tool provides a simple command-line interface to download models from
-ModelScope (https://modelscope.cn). It includes features like:
-- Download models with various options (revision, ignore patterns)
-- Check if models already exist locally to avoid re-downloading
-- List locally available models with size information
-- Force re-download if needed
+此工具提供了一个简单的命令行界面，用于从 ModelScope (https://modelscope.cn) 下载模型。它包含以下功能：
+- 使用各种选项下载模型（版本、忽略模式）
+- 检查模型是否已本地存在以避免重新下载
+- 列出本地可用的模型及其大小信息
+- 如需要强制重新下载
 
-Basic Usage:
+基本用法：
     python model_downloader.py [MODEL_ID] [OPTIONS]
     python model_downloader.py --list
     python model_downloader.py --help
 
-Examples:
-    # Download a model
+示例：
+    # 下载模型
     python model_downloader.py ChenkinNoob/ChenkinNoob-XL-V0.2
 
-    # List locally available models
+    # 列出本地可用的模型
     python model_downloader.py --list
 
-    # Download with specific revision and ignore patterns
+    # 使用特定版本和忽略模式下载
     python model_downloader.py ChenkinNoob/ChenkinNoob-XL-V0.2 --revision v1.0 --ignore-pattern "*.msgpack"
 
-    # Force re-download even if model exists
+    # 即使模型存在也强制重新下载
     python model_downloader.py ChenkinNoob/ChenkinNoob-XL-V0.2 --force
 
-    # Use custom cache directory
+    # 使用自定义缓存目录
     python model_downloader.py ChenkinNoob/ChenkinNoob-XL-V0.2 --cache-dir /path/to/models
 
-The ModelDownloader class can also be imported and used programmatically.
+ModelDownloader 类也可以被导入并在程序中使用。
 
-Author: MeowLiu
-Date: 2025-12-26
+作者: MeowLiu
+日期: 2025-12-26
 """
 
 import argparse
@@ -45,14 +44,14 @@ from modelscope import snapshot_download
 
 
 class ModelDownloader:
-    """A class for downloading models from ModelScope community."""
+    """一个用于从 ModelScope 社区下载模型的类。"""
 
     def __init__(self, cache_dir: str = "./models"):
         """
-        Initialize the downloader.
+        初始化下载器。
 
-        Args:
-            cache_dir: Directory to store downloaded models
+        参数:
+            cache_dir: 存储下载模型的目录
         """
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
@@ -61,26 +60,26 @@ class ModelDownloader:
                  ignore_patterns: Optional[List[str]] = None,
                  show_progress: bool = True) -> str:
         """
-        Download a model from ModelScope.
+        从 ModelScope 下载模型。
 
-        Args:
-            model_id: Model ID in format 'username/model_name'
-            revision: Specific revision or branch to download
-            ignore_patterns: List of file patterns to ignore
-            show_progress: Whether to show download progress
+        参数:
+            model_id: 模型 ID，格式为 'username/model_name'
+            revision: 要下载的特定版本或分支
+            ignore_patterns: 要忽略的文件模式列表
+            show_progress: 是否显示下载进度
 
-        Returns:
-            Path to the downloaded model directory
+        返回:
+            下载模型目录的路径
         """
         if not self._validate_model_id(model_id):
-            raise ValueError(f"Invalid model ID format: {model_id}. Expected 'username/model_name'")
+            raise ValueError(f"无效的模型 ID 格式: {model_id}. 预期格式 'username/model_name'")
 
         if show_progress:
-            print(f"\n[DOWNLOAD] Downloading model: {model_id}")
+            print(f"\n[DOWNLOAD] 正在下载模型: {model_id}")
             if revision:
-                print(f"   Revision: {revision}")
+                print(f"   版本: {revision}")
             if ignore_patterns:
-                print(f"   Ignoring patterns: {ignore_patterns}")
+                print(f"   忽略模式: {ignore_patterns}")
             print("-" * 50)
 
         # Download the model
@@ -92,23 +91,23 @@ class ModelDownloader:
         )
 
         if show_progress:
-            print("\n[SUCCESS] Model downloaded successfully!")
-            print(f"   Location: {model_dir}")
+            print("\n[SUCCESS] 模型下载成功!")
+            print(f"   位置: {model_dir}")
             print("-" * 50)
 
         return model_dir
 
     def list_models(self) -> List[dict]:
         """
-        List all models in the cache directory.
+        列出缓存目录中的所有模型。
 
-        Returns:
-            List of dictionaries with model info
+        返回:
+            包含模型信息的字典列表
         """
         models = []
         if self.cache_dir.exists():
             for item in self.cache_dir.iterdir():
-                # Skip hidden directories (starting with .) and non-directories
+                # 跳过隐藏目录（以.开头）和非目录
                 if item.is_dir() and not item.name.startswith('.'):
                     models.append({
                         'name': item.name,
@@ -119,13 +118,13 @@ class ModelDownloader:
 
     def model_exists(self, model_id: str) -> bool:
         """
-        Check if a model already exists locally.
+        检查模型是否已本地存在。
 
-        Args:
-            model_id: Model ID to check
+        参数:
+            model_id: 要检查的模型 ID
 
-        Returns:
-            True if model exists, False otherwise
+        返回:
+            如果模型存在则返回 True，否则返回 False
         """
         model_name = self._extract_model_name(model_id)
         model_path = self.cache_dir / model_name
@@ -133,13 +132,13 @@ class ModelDownloader:
 
     def get_model_path(self, model_id: str) -> Optional[Path]:
         """
-        Get local path for a model if it exists.
+        获取模型的本地路径（如果存在）。
 
-        Args:
-            model_id: Model ID to look for
+        参数:
+            model_id: 要查找的模型 ID
 
-        Returns:
-            Path to model directory or None
+        返回:
+            模型目录的路径或 None
         """
         model_name = self._extract_model_name(model_id)
         model_path = self.cache_dir / model_name
@@ -148,18 +147,18 @@ class ModelDownloader:
         return None
 
     def _validate_model_id(self, model_id: str) -> bool:
-        """Validate model ID format."""
+        """验证模型 ID 格式。"""
         if not model_id or '/' not in model_id:
             return False
         parts = model_id.split('/')
         return len(parts) == 2 and all(parts)
 
     def _extract_model_name(self, model_id: str) -> str:
-        """Extract model name from model ID."""
+        """从模型 ID 中提取模型名称。"""
         return model_id.split('/')[-1]
 
     def _get_directory_size(self, directory: Path) -> int:
-        """Calculate directory size in bytes."""
+        """计算目录大小（以字节为单位）。"""
         total_size = 0
         for dirpath, _, filenames in os.walk(directory):
             for filename in filenames:
@@ -170,45 +169,45 @@ class ModelDownloader:
 
 
 def main():
-    """Main CLI entry point."""
+    """主命令行入口点。"""
     parser = argparse.ArgumentParser(
-        description="Download models from ModelScope community",
-        epilog="Example: python model_downloader.py ChenkinNoob/ChenkinNoob-XL-V0.2"
+        description="从 ModelScope 社区下载模型",
+        epilog="示例: python model_downloader.py ChenkinNoob/ChenkinNoob-XL-V0.2"
     )
 
     parser.add_argument(
         "model_id",
         nargs="?",
-        help="Model ID to download (format: username/model_name)"
+        help="要下载的模型 ID（格式: username/model_name）"
     )
 
     parser.add_argument(
         "--cache-dir",
         default="./models",
-        help="Directory to store downloaded models (default: ./models)"
+        help="存储下载模型的目录（默认: ./models）"
     )
 
     parser.add_argument(
         "--list",
         action="store_true",
-        help="List locally available models"
+        help="列出本地可用的模型"
     )
 
     parser.add_argument(
         "--revision",
-        help="Specific revision or branch to download"
+        help="要下载的特定版本或分支"
     )
 
     parser.add_argument(
         "--ignore-pattern",
         action="append",
-        help="File patterns to ignore (e.g., '*.msgpack', '*.onnx')"
+        help="要忽略的文件模式（例如: '*.msgpack', '*.onnx'）"
     )
 
     parser.add_argument(
         "--force",
         action="store_true",
-        help="Force download even if model exists locally"
+        help="即使模型在本地存在也强制下载"
     )
 
     args = parser.parse_args()
@@ -220,9 +219,9 @@ def main():
     if args.list:
         models = downloader.list_models()
         if models:
-            print("\n[DIR] Available models in cache directory:")
+            print("\n[DIR] 缓存目录中的可用模型:")
             print("-" * 60)
-            print(f"{'Model Name':<30} {'Size':<12} {'Location':<30}")
+            print(f"{'模型名称':<30} {'大小':<12} {'位置':<30}")
             print("-" * 60)
             for model in models:
                 size_mb = model['size'] / (1024 * 1024)
@@ -231,29 +230,29 @@ def main():
                 else:
                     size_gb = size_mb / 1024
                     size_str = f"{size_gb:.2f} GB"
-                # Truncate path for display
+                # 截断路径以供显示
                 path_display = model['path']
                 if len(path_display) > 30:
                     path_display = "..." + path_display[-27:]
                 print(f"{model['name']:<30} {size_str:<12} {path_display:<30}")
             print("-" * 60)
-            print(f"Total: {len(models)} model(s)")
+            print(f"总计: {len(models)} 个模型")
         else:
-            print("\n[EMPTY] No models found in cache directory.")
-            print(f"   Cache directory: {downloader.cache_dir.absolute()}")
+            print("\n[EMPTY] 在缓存目录中未找到模型.")
+            print(f"   缓存目录: {downloader.cache_dir.absolute()}")
         return
 
     # Handle model download
     if args.model_id:
-        # Validate model ID
+        # 验证模型 ID
         if not downloader._validate_model_id(args.model_id):
-            print(f"Error: Invalid model ID format: {args.model_id}")
-            print("Expected format: username/model_name")
+            print(f"错误: 无效的模型 ID 格式: {args.model_id}")
+            print("预期格式: username/model_name")
             sys.exit(1)
 
-        # Check if model exists
+        # 检查模型是否存在
         if downloader.model_exists(args.model_id) and not args.force:
-            print(f"\n[EXISTS] Model '{args.model_id}' already exists locally.")
+            print(f"\n[EXISTS] 模型 '{args.model_id}' 已在本地存在.")
             model_path = downloader.get_model_path(args.model_id)
             if model_path:
                 size = downloader._get_directory_size(model_path) / (1024 * 1024)
@@ -261,12 +260,12 @@ def main():
                     size_str = f"{size:.2f} MB"
                 else:
                     size_str = f"{size/1024:.2f} GB"
-                print(f"   Location: {model_path}")
-                print(f"   Size: {size_str}")
-            print("   Use --force flag to re-download.")
+                print(f"   位置: {model_path}")
+                print(f"   大小: {size_str}")
+            print("   使用 --force 标志重新下载.")
             return
 
-        # Download the model
+        # 下载模型
         try:
             model_dir = downloader.download(
                 args.model_id,
@@ -274,7 +273,7 @@ def main():
                 ignore_patterns=args.ignore_pattern,
                 show_progress=True
             )
-            # Show final summary
+            # 显示最终摘要
             if model_dir:
                 final_path = Path(model_dir)
                 if final_path.exists():
@@ -283,16 +282,16 @@ def main():
                         size_str = f"{size:.2f} MB"
                     else:
                         size_str = f"{size/1024:.2f} GB"
-                    print("\n[SUMMARY] Download Summary:")
-                    print(f"   Model: {args.model_id}")
-                    print(f"   Location: {model_dir}")
-                    print(f"   Size: {size_str}")
-                    print(f"   Cache directory: {downloader.cache_dir.absolute()}")
+                    print("\n[SUMMARY] 下载摘要:")
+                    print(f"   模型: {args.model_id}")
+                    print(f"   位置: {model_dir}")
+                    print(f"   大小: {size_str}")
+                    print(f"   缓存目录: {downloader.cache_dir.absolute()}")
         except Exception as e:
-            print(f"\n[ERROR] Error downloading model: {e}")
+            print(f"\n[ERROR] 下载模型时出错: {e}")
             sys.exit(1)
     else:
-        # No arguments provided
+        # 未提供参数
         parser.print_help()
 
 
