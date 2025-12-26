@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir:*)",
+      "Bash(uv run python:*)",
+      "Bash(timeout 30 uv run python:*)",
+      "Bash(timeout:*)"
+    ]
+  }
+}
