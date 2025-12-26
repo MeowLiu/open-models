@@ -64,7 +64,9 @@ def check_system_resources() -> Tuple[bool, str]:
         if torch.cuda.is_available():
             gpu_memory_gb = torch.cuda.get_device_properties(0).total_memory / 1024**3
             if gpu_memory_gb < 8:
-                warnings.append(f"GPU显存较低 ({gpu_memory_gb:.1f}GB)，建议至少8GB。将使用CPU卸载模式。")
+                warnings.append(
+                    f"GPU显存较低 ({gpu_memory_gb:.1f}GB)，建议至少8GB。将使用CPU卸载模式。"
+                )
         else:
             warnings.append("未检测到CUDA GPU，将使用CPU模式（速度较慢）。")
 
@@ -73,7 +75,9 @@ def check_system_resources() -> Tuple[bool, str]:
         available_memory_gb = mem.available / 1024**3
         # 模型大小约6.6GB，加载需要约13-20GB内存
         if available_memory_gb < 12:
-            warnings.append(f"可用系统内存较低 ({available_memory_gb:.1f}GB)，建议关闭其他应用程序。")
+            warnings.append(
+                f"可用系统内存较低 ({available_memory_gb:.1f}GB)，建议关闭其他应用程序。"
+            )
 
         if warnings:
             return False, "\n".join(warnings)
@@ -89,7 +93,7 @@ def print_resource_warnings():
     is_ok, warning_msg = check_system_resources()
     if not is_ok and warning_msg:
         rprint("\n[yellow]警告: 系统资源可能不足[/yellow]")
-        for line in warning_msg.split('\n'):
+        for line in warning_msg.split("\n"):
             rprint(f"  {line}")
 
 
@@ -282,6 +286,7 @@ def interactive_cli() -> None:
 
             generator = ChenkinNoobImageGenerator(model_path)
             progress.update(task, description="[cyan]正在生成图像...")
+            from random import randint
 
             # 生成图像
             output_path = generator.generate_and_save(
@@ -292,7 +297,7 @@ def interactive_cli() -> None:
                 output_path=output_path,
                 num_inference_steps=30,
                 guidance_scale=7.5,
-                seed=42,
+                seed=randint(1, 100),
                 show_preview=False,  # 不在CLI中显示预览
             )
 
