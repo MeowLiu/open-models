@@ -32,7 +32,7 @@ Examples:
 
 The ModelDownloader class can also be imported and used programmatically.
 
-Author: Generated with Claude Code
+Author: MeowLiu
 Date: 2025-12-26
 """
 

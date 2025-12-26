@@ -5,7 +5,8 @@
       "Bash(uv run python:*)",
       "Bash(timeout 30 uv run python:*)",
       "Bash(timeout:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(uv add:*)"
     ]
   }
 }
