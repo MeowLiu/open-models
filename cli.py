@@ -126,8 +126,17 @@ def get_next_filename(base_name: str, extension: str = "png") -> str:
     return str(output_dir / filename)
 
 
-def interactive_cli() -> None:
-    """主交互式CLI函数。"""
+def single_generation_session() -> str:
+    """
+    单次图像生成会话。
+
+    Returns:
+        str: 会话状态，可能的值：
+            "continue" - 用户希望继续生成另一张图像
+            "completed" - 用户完成生成
+            "cancelled" - 用户取消生成
+            "error" - 发生错误，无法继续
+    """
     # 显示欢迎信息
     console.clear()
     rprint(
@@ -275,7 +284,7 @@ def interactive_cli() -> None:
 
     if not confirm:
         rprint("[yellow]已取消生成[/yellow]")
-        sys.exit(0)
+        return "cancelled"  # 用户取消，未完成生成
 
     # 初始化图像生成器
     try:
@@ -331,7 +340,9 @@ def interactive_cli() -> None:
         ).execute()
 
         if continue_generation:
-            interactive_cli()
+            return "continue"  # 用户希望继续生成另一张图像
+        else:
+            return "completed"  # 用户完成生成
 
     except FileNotFoundError as e:
         rprint(f"[red]错误: 模型文件未找到[/red]\n{e}")
@@ -340,10 +351,10 @@ def interactive_cli() -> None:
             rprint("[yellow]可用模型:[/yellow]")
             for model in available_models:
                 rprint(f"  - {model}")
-        sys.exit(1)
+        return "error"  # 模型文件未找到错误
     except ValueError as e:
         rprint(f"[red]错误: 无效的参数[/red]\n{e}")
-        sys.exit(1)
+        return "error"  # 参数错误
     except RuntimeError as e:
         if "out of memory" in str(e).lower():
             rprint("[red]错误: 显存不足[/red]")
@@ -353,17 +364,64 @@ def interactive_cli() -> None:
             rprint("  3. 使用CPU模式（速度较慢）")
         else:
             rprint(f"[red]运行时错误:[/red]\n{e}")
-        sys.exit(1)
+        return "error"  # 运行时错误
     except Exception as e:
         rprint(f"[red]未知错误:[/red]\n{e}")
         rprint(f"[yellow]详细错误信息:[/yellow]")
         traceback.print_exc()
-        sys.exit(1)
+        return "error"  # 未知错误
+
+
+def interactive_cli() -> None:
+    """
+    交互式CLI主入口点。
+
+    管理多次图像生成会话，避免内存泄漏。
+    """
+    generation_count = 0
+    max_generations = 10  # 安全限制，防止无限循环
+
+    rprint("[cyan]欢迎使用 ChenkinNoob 图像生成工具[/cyan]")
+    rprint("[yellow]提示: 每次生成后，程序会询问是否继续生成另一张图像。[/yellow]")
+    rprint("[yellow]       每次生成都是独立的会话，避免内存泄漏。[/yellow]")
+
+    while generation_count < max_generations:
+        generation_count += 1
+        rprint(f"\n[bold]第 {generation_count} 次生成会话[/bold]")
+
+        try:
+            status = single_generation_session()
+
+            if status == "continue":
+                rprint("[yellow]准备开始下一次生成会话...[/yellow]")
+                continue
+            elif status == "completed":
+                rprint("[green]✓ 图像生成完成，退出程序。[/green]")
+                break
+            elif status == "cancelled":
+                rprint("[yellow]已取消生成。[/yellow]")
+                break
+            elif status == "error":
+                rprint("[red]发生错误，程序将退出。[/red]")
+                break
+            else:
+                rprint(f"[yellow]未知状态: {status}，程序将退出。[/yellow]")
+                break
+
+        except KeyboardInterrupt:
+            rprint("\n[yellow]已取消操作[/yellow]")
+            break
+        except Exception as e:
+            rprint(f"[red]主循环发生未预期的错误: {e}[/red]")
+            traceback.print_exc()
+            break
+
+    if generation_count >= max_generations:
+        rprint(f"[yellow]已达到最大生成次数限制 ({max_generations} 次)，程序退出。[/yellow]")
+        rprint("[yellow]这是为了防止无限循环和内存泄漏。[/yellow]")
+
+    rprint("\n[cyan]感谢使用 ChenkinNoob 图像生成工具![/cyan]")
 
 
 if __name__ == "__main__":
-    try:
-        interactive_cli()
-    except KeyboardInterrupt:
-        rprint("\n[yellow]已取消操作[/yellow]")
-        sys.exit(0)
+    interactive_cli()

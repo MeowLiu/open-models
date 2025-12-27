@@ -36,6 +36,34 @@ class ChenkinNoobImageGenerator:
         self._load_model()
         self._apply_memory_optimizations()
 
+    def __del__(self):
+        """析构函数，清理模型资源。"""
+        self.cleanup()
+
+    def cleanup(self):
+        """显式清理模型资源。"""
+        if hasattr(self, 'pipe') and self.pipe is not None:
+            try:
+                # 尝试将模型移出GPU（如果存在）
+                if hasattr(self.pipe, 'device'):
+                    try:
+                        self.pipe = self.pipe.to('cpu')
+                    except:
+                        pass
+
+                # 清理管道
+                del self.pipe
+                self.pipe = None
+
+                # 清理PyTorch缓存
+                import torch
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+
+            except Exception:
+                # 忽略清理过程中的错误
+                pass
+
     def _load_model(self):
         """加载模型，支持.safetensors单文件或Diffusers目录格式。"""
         # 如果是文件且为 .safetensors 格式，直接加载
