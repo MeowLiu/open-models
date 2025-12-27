@@ -126,6 +126,72 @@ def get_next_filename(base_name: str, extension: str = "png") -> str:
     return str(output_dir / filename)
 
 
+def get_sequential_filename(base_name: str, index: int, extension: str = "png") -> str:
+    """
+    获取带有序号的文件名（不检查是否存在）。
+
+    Args:
+        base_name: 基础文件名（不含扩展名）
+        index: 序号（从1开始）
+        extension: 文件扩展名
+
+    Returns:
+        带有序号的文件路径
+    """
+    output_dir = Path("generated_images")
+    output_dir.mkdir(exist_ok=True)
+
+    # 验证基础文件名
+    if not re.match(r"^[a-zA-Z0-9_-]{3,50}$", base_name):
+        # 如果不匹配，使用默认名称
+        base_name = "generated_image"
+
+    if index <= 0:
+        index = 1
+
+    if index == 1:
+        filename = f"{base_name}.{extension}"
+    else:
+        filename = f"{base_name}_{index}.{extension}"
+
+    return str(output_dir / filename)
+
+
+def generate_sequential_filenames(base_name: str, count: int, extension: str = "png") -> list[str]:
+    """
+    生成多个顺序文件名，跳过已存在的文件。
+
+    Args:
+        base_name: 基础文件名（不含扩展名）
+        count: 需要生成的文件名数量
+        extension: 文件扩展名
+
+    Returns:
+        文件名路径列表
+    """
+    filenames = []
+    output_dir = Path("generated_images")
+    output_dir.mkdir(exist_ok=True)
+
+    # 验证基础文件名
+    if not re.match(r"^[a-zA-Z0-9_-]{3,50}$", base_name):
+        base_name = "generated_image"
+
+    index = 1
+    while len(filenames) < count:
+        if index == 1:
+            candidate = output_dir / f"{base_name}.{extension}"
+        else:
+            candidate = output_dir / f"{base_name}_{index}.{extension}"
+
+        if not candidate.exists():
+            filenames.append(str(candidate))
+
+        index += 1
+
+    return filenames
+
+
 def single_generation_session() -> str:
     """
     单次图像生成会话。
@@ -193,20 +259,16 @@ def single_generation_session() -> str:
         while True:
             try:
                 width = inquirer.number(
-                    message="请输入图像宽度:",
+                    message="请输入图像宽度（建议输入64的倍数）:",
                     min_allowed=512,
                     default=768,
-                    validate=lambda val: isinstance(val, (int, float))
-                    and int(val) % 64 == 0,
                     invalid_message="宽度必须是64的倍数且≥512",
                 ).execute()
 
                 height = inquirer.number(
-                    message="请输入图像高度:",
+                    message="请输入图像高度（建议输入64的倍数）:",
                     min_allowed=512,
                     default=768,
-                    validate=lambda val: isinstance(val, (int, float))
-                    and int(val) % 64 == 0,
                     invalid_message="高度必须是64的倍数且≥512",
                 ).execute()
 
@@ -276,9 +338,34 @@ def single_generation_session() -> str:
     rprint(f"   正向提示词长度: {len(positive_prompt)} 字符")
     rprint(f"   反向提示词长度: {len(negative_prompt)} 字符")
 
+    # 选择生成模式
+    mode_choice = inquirer.select(
+        message="选择生成模式:",
+        choices=[
+            Choice(value="single", name="单张生成"),
+            Choice(value="multiple", name="多张生成（批量）"),
+        ],
+        default="single",
+    ).execute()
+
+    image_count = 1
+    if mode_choice == "multiple":
+        while True:
+            try:
+                count_input = inquirer.number(
+                    message="请输入生成图像数量 (1-100):",
+                    min_allowed=1,
+                    max_allowed=100,
+                    default=5,
+                ).execute()
+                image_count = int(count_input)
+                break
+            except Exception as e:
+                rprint(f"[red]输入错误: {e}[/red]")
+
     # 确认是否继续
     confirm = inquirer.confirm(
-        message="是否开始生成图像?",
+        message=f"是否开始生成{'这1张图像' if mode_choice == 'single' else f'这{image_count}张图像'}?",
         default=True,
     ).execute()
 
@@ -288,61 +375,163 @@ def single_generation_session() -> str:
 
     # 初始化图像生成器
     try:
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            console=console,
-        ) as progress:
-            task = progress.add_task("[cyan]正在加载模型...", total=None)
+        from random import randint
 
+        if mode_choice == "single":
+            # 单张生成模式
+            # 初始化生成器
             generator = ChenkinNoobImageGenerator(model_path)
-            progress.update(task, description="[cyan]正在生成图像...")
-            from random import randint
 
-            # 生成图像
-            output_path = generator.generate_and_save(
-                prompt=positive_prompt,
-                negative_prompt=negative_prompt,
-                width=width,
-                height=height,
-                output_path=output_path,
-                num_inference_steps=30,
-                guidance_scale=7.5,
-                seed=randint(1, 100),
-                show_preview=False,  # 不在CLI中显示预览
-            )
+            try:
+                with Progress(
+                    SpinnerColumn(),
+                    TextColumn("[progress.description]{task.description}"),
+                    console=console,
+                ) as progress:
+                    task = progress.add_task("[cyan]正在生成图像...", total=None)
 
-            progress.update(task, description="[green]✓ 图像生成完成![/green]")
+                    # 生成图像
+                    output_path = generator.generate_and_save(
+                        prompt=positive_prompt,
+                        negative_prompt=negative_prompt,
+                        width=width,
+                        height=height,
+                        output_path=output_path,
+                        num_inference_steps=30,
+                        guidance_scale=7.5,
+                        seed=randint(1, 100),
+                        show_preview=False,  # 不在CLI中显示预览
+                    )
 
-        rprint(
-            f"\n[bold green]✓ 图像已成功保存至:[/bold green] [cyan]{output_path}[/cyan]"
-        )
+                    progress.update(task, description="[green]✓ 图像生成完成![/green]")
 
-        # 询问是否显示预览
-        show_preview = inquirer.confirm(
-            message="是否显示图像预览?",
-            default=False,
-        ).execute()
+                # 清理显存
+                generator.cleanup()
+                import torch
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
 
-        if show_preview:
-            import matplotlib.pyplot as plt
-            from PIL import Image
+                rprint(
+                    f"\n[bold green]✓ 图像已成功保存至:[/bold green] [cyan]{output_path}[/cyan]"
+                )
 
-            image = Image.open(output_path)
-            plt.imshow(image)
-            plt.axis("off")
-            plt.show()
+                # 询问是否显示预览
+                show_preview = inquirer.confirm(
+                    message="是否显示图像预览?",
+                    default=False,
+                ).execute()
 
-        # 询问是否继续生成
-        continue_generation = inquirer.confirm(
-            message="是否继续生成另一张图像?",
-            default=False,
-        ).execute()
+                if show_preview:
+                    import matplotlib.pyplot as plt
+                    from PIL import Image
 
-        if continue_generation:
-            return "continue"  # 用户希望继续生成另一张图像
+                    image = Image.open(output_path)
+                    plt.imshow(image)
+                    plt.axis("off")
+                    plt.show()
+
+                # 询问是否继续生成
+                continue_generation = inquirer.confirm(
+                    message="是否继续生成另一张图像?",
+                    default=False,
+                ).execute()
+
+                if continue_generation:
+                    return "continue"  # 用户希望继续生成另一张图像
+                else:
+                    return "completed"  # 用户完成生成
+
+            except Exception:
+                # 发生异常时也清理生成器
+                generator.cleanup()
+                raise
         else:
-            return "completed"  # 用户完成生成
+            # 多张生成模式
+            generator = None
+            try:
+                # 生成多个文件名
+                base_filename = filename  # 从之前的输入获取基础文件名
+                output_paths = generate_sequential_filenames(base_filename, image_count)
+
+                with Progress(
+                    SpinnerColumn(),
+                    TextColumn("[progress.description]{task.description}"),
+                    console=console,
+                ) as progress:
+                    task = progress.add_task("[cyan]正在加载模型...", total=None)
+
+                    # 初始化生成器
+                    generator = ChenkinNoobImageGenerator(model_path)
+
+                    # 更新进度条显示为多图生成
+                    progress.update(task, description=f"[cyan]正在批量生成 {image_count} 张图像...")
+
+                    generated_count = 0
+                    for i, current_output_path in enumerate(output_paths):
+                        # 生成随机种子
+                        seed = randint(1, 10000)  # 使用更大的随机范围
+
+                        # 更新进度条显示当前进度
+                        progress.update(task, description=f"[cyan]正在生成第 {i+1}/{image_count} 张图像...")
+
+                        # 生成图像
+                        generator.generate_and_save(
+                            prompt=positive_prompt,
+                            negative_prompt=negative_prompt,
+                            width=width,
+                            height=height,
+                            output_path=current_output_path,
+                            num_inference_steps=30,
+                            guidance_scale=7.5,
+                            seed=seed,
+                            show_preview=False,  # 多图生成时不显示预览
+                        )
+                        generated_count += 1
+
+                        # 每生成5张图像或最后一张时，强制清理显存
+                        if generated_count % 5 == 0 or generated_count == image_count:
+                            # 清理显存
+                            import torch
+                            if torch.cuda.is_available():
+                                torch.cuda.empty_cache()
+
+                    progress.update(task, description=f"[green]✓ 已成功生成 {image_count} 张图像![/green]")
+
+                # 显示生成结果摘要
+                rprint(f"\n[bold green]✓ 批量生成完成！共生成 {image_count} 张图像:[/bold green]")
+                for i, path in enumerate(output_paths[:10]):  # 最多显示前10个文件
+                    rprint(f"  [{i+1}] [cyan]{Path(path).name}[/cyan]")
+
+                if image_count > 10:
+                    rprint(f"  ... 还有 {image_count - 10} 张图像未显示")
+
+                rprint(f"[green]所有图像已保存至:[/green] [cyan]{Path('generated_images').absolute()}[/cyan]")
+
+                # 多图生成后不询问是否显示预览，直接询问是否继续
+                continue_generation = inquirer.confirm(
+                    message="是否继续生成另一批图像?",
+                    default=False,
+                ).execute()
+
+                # 清理生成器资源
+                if generator:
+                    generator.cleanup()
+                import torch
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+
+                if continue_generation:
+                    return "continue"  # 用户希望继续生成另一批图像
+                else:
+                    return "completed"  # 用户完成生成
+
+            finally:
+                # 确保在异常情况下也清理资源
+                if generator:
+                    generator.cleanup()
+                import torch
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
 
     except FileNotFoundError as e:
         rprint(f"[red]错误: 模型文件未找到[/red]\n{e}")
